@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Daftar Airdrop — Ringkas</title>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <h1 id="pageTitle">Daftar Airdrop</h1>
+      <div class="tools">
+        <button id="addRow" class="btn-primary">+ Tambah</button>
+        <button id="resetStatus">Reset Status</button>
+        <button id="filter">Filter Tipe</button>
+        <button id="switchArchive">📁 Arsip</button>
+        <button id="clearAll" class="btn-danger">Hapus Semua</button>
+      </div>
+    </header>
+
+    <div class="table-container">
+      <table>
+        <colgroup>
+          <col style="width:22%">
+          <col style="width:30%">
+          <col style="width:12%">
+          <col style="width:8%">
+          <col style="width:14%">
+          <col style="width:14%">
+        </colgroup>
+
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Deskripsi</th>
+            <th>Tipe</th>
+            <th>Status</th>
+            <th>Link</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="body"></tbody>
+      </table>
+    </div>
+
+    <p id="empty" class="muted">Belum ada data — klik "Tambah".</p>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
