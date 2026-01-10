@@ -296,6 +296,7 @@ td {
   
   .table-container {
     border-radius: 6px;
+    padding-bottom: 48px;
   }
   
   table {
@@ -306,6 +307,28 @@ td {
     padding: 8px;
   }
 }
+.footer {
+  position: sticky;
+  bottom: 0;
+  height: 40px;
+  background: linear-gradient(
+    to top,
+    rgba(247, 249, 252, 1),
+    rgba(247, 249, 252, 0.85),
+    rgba(247, 249, 252, 0)
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.footer-text {
+  font-size: 12px;
+  color: #999;
+  user-select: none;
+}
+
 
 @media (max-width: 480px) {
   .wrap {
