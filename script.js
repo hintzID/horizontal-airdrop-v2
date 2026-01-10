@@ -273,16 +273,72 @@ function load() {
   }
 }
 
+// --- Export / Import
+document.getElementById('exportData').addEventListener('click', () => {
+  const payload = {
+    version: 1,
+    main: JSON.parse(localStorage.getItem(KEY_MAIN) || '[]'),
+    archive: JSON.parse(localStorage.getItem(KEY_ARCHIVE) || '[]'),
+    exportedAt: new Date().toISOString()
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: 'application/json'
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'daftar-airdrop.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('importData').addEventListener('click', () => {
+  document.getElementById('importFile').click();
+});
+
+document.getElementById('importFile').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+
+      if (!data.main || !data.archive) {
+        alert('Format file tidak valid');
+        return;
+      }
+
+      if (!confirm('Import akan menimpa data saat ini. Lanjutkan?')) return;
+
+      localStorage.setItem(KEY_MAIN, JSON.stringify(data.main));
+      localStorage.setItem(KEY_ARCHIVE, JSON.stringify(data.archive));
+
+      load();
+      alert('Import berhasil');
+    } catch (err) {
+      alert('Gagal membaca file JSON');
+    }
+  };
+
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
 // --- Init
 document.addEventListener('DOMContentLoaded', () => {
   load();
   setupFilter();
 
-  document.getElementById('addRow').addEventListener('click', () => {
-    body.appendChild(createRow());
-    save();
-    updateFilterOptions();
-  });
+document.getElementById('addRow').addEventListener('click', () => {
+  const row = createRow();
+  body.insertBefore(row, body.firstChild);
+  save();
+  updateFilterOptions();
+});
 
   document.getElementById('resetStatus').addEventListener('click', () => {
     body.querySelectorAll('input[type="checkbox"]').forEach(c => {
