@@ -112,6 +112,13 @@ table {
   overflow: hidden;
 }
 
+.col-nama       { width: 22%; }
+.col-deskripsi { width: 30%; }
+.col-tipe       { width: 12%; }
+.col-status     { width: 8%; }
+.col-link       { width: 14%; }
+.col-aksi       { width: 14%; }
+
 thead {
   background: var(--light-bg);
   position: sticky;
@@ -326,6 +333,7 @@ td {
 .footer-text {
   font-size: 12px;
   color: #999;
+  -webkit-user-select: none;
   user-select: none;
 }
 
