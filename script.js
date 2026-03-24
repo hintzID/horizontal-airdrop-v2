@@ -1,12 +1,116 @@
-const KEY_MAIN = 'daftarAirdrop_v1';
-const KEY_ARCHIVE = 'daftarAirdrop_arsip';
+// ── Wallet keys ────────────────────────────────────────────────────────────
+const KEY_WALLETS   = 'daftarAirdrop_wallets';   // [{id, name}]
+const KEY_ACTIVE_W  = 'daftarAirdrop_activeWallet';
+
+// ── Per‑wallet storage helpers ──────────────────────────────────────────────
+function walletMainKey(wid)    { return `daftarAirdrop_v1__${wid}`; }
+function walletArchiveKey(wid) { return `daftarAirdrop_arsip__${wid}`; }
+
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+// ── Wallet state ────────────────────────────────────────────────────────────
+let wallets = [];         // [{id, name}]
+let activeWalletId = null;
 let isArchiveView = false;
 
-const body = document.getElementById('body');
-const empty = document.getElementById('empty');
-const pageTitle = document.getElementById('pageTitle');
+// ── DOM refs ────────────────────────────────────────────────────────────────
+const body           = document.getElementById('body');
+const empty          = document.getElementById('empty');
+const pageTitle      = document.getElementById('pageTitle');
 const switchArchiveBtn = document.getElementById('switchArchive');
+const walletSelect   = document.getElementById('walletSelect');
 
+// ── Current storage key ─────────────────────────────────────────────────────
+function currentKey() {
+  return isArchiveView
+    ? walletArchiveKey(activeWalletId)
+    : walletMainKey(activeWalletId);
+}
+
+// ── Wallet persistence ──────────────────────────────────────────────────────
+function saveWallets() {
+  localStorage.setItem(KEY_WALLETS, JSON.stringify(wallets));
+}
+
+function loadWallets() {
+  const raw = localStorage.getItem(KEY_WALLETS);
+  wallets = raw ? JSON.parse(raw) : [];
+
+  if (wallets.length === 0) {
+    // Migrate legacy data (no‑wallet era) into a default wallet
+    const legacyMain    = localStorage.getItem('daftarAirdrop_v1');
+    const legacyArchive = localStorage.getItem('daftarAirdrop_arsip');
+    const def = { id: genId(), name: 'Wallet Utama' };
+    wallets.push(def);
+    if (legacyMain)    localStorage.setItem(walletMainKey(def.id),    legacyMain);
+    if (legacyArchive) localStorage.setItem(walletArchiveKey(def.id), legacyArchive);
+    saveWallets();
+  }
+
+  const savedActive = localStorage.getItem(KEY_ACTIVE_W);
+  activeWalletId = wallets.find(w => w.id === savedActive)
+    ? savedActive
+    : wallets[0].id;
+
+  localStorage.setItem(KEY_ACTIVE_W, activeWalletId);
+}
+
+// ── Render wallet dropdown ──────────────────────────────────────────────────
+function renderWalletSelect() {
+  walletSelect.innerHTML = '';
+  wallets.forEach(w => {
+    const opt = document.createElement('option');
+    opt.value = w.id;
+    opt.textContent = w.name;
+    if (w.id === activeWalletId) opt.selected = true;
+    walletSelect.appendChild(opt);
+  });
+}
+
+// ── Wallet CRUD ─────────────────────────────────────────────────────────────
+function addWallet() {
+  const name = prompt('Nama wallet baru:');
+  if (!name || !name.trim()) return;
+  const w = { id: genId(), name: name.trim() };
+  wallets.push(w);
+  saveWallets();
+  activeWalletId = w.id;
+  localStorage.setItem(KEY_ACTIVE_W, activeWalletId);
+  renderWalletSelect();
+  load();
+}
+
+function editWallet() {
+  const w = wallets.find(w => w.id === activeWalletId);
+  if (!w) return;
+  const name = prompt('Edit nama wallet:', w.name);
+  if (!name || !name.trim()) return;
+  w.name = name.trim();
+  saveWallets();
+  renderWalletSelect();
+}
+
+function deleteWallet() {
+  if (wallets.length === 1) {
+    alert('Minimal harus ada satu wallet.');
+    return;
+  }
+  const w = wallets.find(w => w.id === activeWalletId);
+  if (!confirm(`Hapus wallet "${w.name}" beserta semua datanya?`)) return;
+
+  // Remove data
+  localStorage.removeItem(walletMainKey(activeWalletId));
+  localStorage.removeItem(walletArchiveKey(activeWalletId));
+
+  wallets = wallets.filter(w => w.id !== activeWalletId);
+  saveWallets();
+  activeWalletId = wallets[0].id;
+  localStorage.setItem(KEY_ACTIVE_W, activeWalletId);
+  renderWalletSelect();
+  load();
+}
+
+// ── Sample row ──────────────────────────────────────────────────────────────
 const sampleRow = () => ({
   nama: ['Contoh Airdrop'],
   deskripsi: ['Ringkasan singkat'],
@@ -15,11 +119,7 @@ const sampleRow = () => ({
   links: ['https://example.com']
 });
 
-function currentKey() {
-  return isArchiveView ? KEY_ARCHIVE : KEY_MAIN;
-}
-
-// --- UI helper
+// ── UI helpers ───────────────────────────────────────────────────────────────
 function refreshPlusPosition(wrap) {
   const plus = wrap.querySelector('.add-item');
   if (plus && plus !== wrap.lastElementChild) wrap.appendChild(plus);
@@ -29,7 +129,7 @@ function toggleEmpty() {
   empty.classList.toggle('hidden', body.children.length > 0);
 }
 
-// --- ITEM
+// ── Item ────────────────────────────────────────────────────────────────────
 function makeItem(text = '') {
   const d = document.createElement('div');
   d.className = 'item';
@@ -44,16 +144,13 @@ function makeItem(text = '') {
   });
 
   d.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      e.target.blur();
-    }
+    if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
   });
 
   return d;
 }
 
-// --- LINK (Shift+Click untuk edit)
+// ── Link ────────────────────────────────────────────────────────────────────
 function makeLink(url = '') {
   const a = document.createElement('a');
   a.className = 'link';
@@ -79,7 +176,7 @@ function makeLink(url = '') {
   return a;
 }
 
-// --- Row extractor
+// ── Row extractor ────────────────────────────────────────────────────────────
 function extractRowData(tr) {
   const tds = tr.querySelectorAll('td');
   const grab = i =>
@@ -95,13 +192,13 @@ function extractRowData(tr) {
   };
 }
 
-// --- Row builder
+// ── Row builder ──────────────────────────────────────────────────────────────
 function createRow(data = null) {
   const d = data || sampleRow();
   const tr = document.createElement('tr');
   if (d.status) tr.classList.add('completed');
 
-  const td = (items) => {
+  const makeTd = (items) => {
     const td = document.createElement('td');
     const wrap = document.createElement('div');
     wrap.className = 'cell';
@@ -124,9 +221,9 @@ function createRow(data = null) {
     return td;
   };
 
-  tr.appendChild(td(d.nama));
-  tr.appendChild(td(d.deskripsi));
-  tr.appendChild(td(d.type));
+  tr.appendChild(makeTd(d.nama));
+  tr.appendChild(makeTd(d.deskripsi));
+  tr.appendChild(makeTd(d.type));
 
   const tdStatus = document.createElement('td');
   const chk = document.createElement('input');
@@ -181,10 +278,10 @@ function createRow(data = null) {
   return tr;
 }
 
-// --- Arsip / utama
+// ── Archive / main swap ──────────────────────────────────────────────────────
 function moveRow(tr, toArchive) {
-  const fromKey = toArchive ? KEY_MAIN : KEY_ARCHIVE;
-  const toKey = toArchive ? KEY_ARCHIVE : KEY_MAIN;
+  const fromKey = toArchive ? walletMainKey(activeWalletId)    : walletArchiveKey(activeWalletId);
+  const toKey   = toArchive ? walletArchiveKey(activeWalletId) : walletMainKey(activeWalletId);
   const rowData = extractRowData(tr);
 
   const fromData = JSON.parse(localStorage.getItem(fromKey) || '[]')
@@ -200,7 +297,7 @@ function moveRow(tr, toArchive) {
   updateFilterOptions();
 }
 
-// --- Filter Tipe
+// ── Filter Tipe ──────────────────────────────────────────────────────────────
 function setupFilter() {
   const filterButton = document.getElementById('filter');
   let filterContainer = document.querySelector('.filter-container');
@@ -218,8 +315,7 @@ function setupFilter() {
   window.updateFilterOptions = function () {
     const types = new Set();
     body.querySelectorAll('tr').forEach(tr => {
-      const typeItems = tr.querySelectorAll('td:nth-child(3) .item');
-      typeItems.forEach(item => {
+      tr.querySelectorAll('td:nth-child(3) .item').forEach(item => {
         if (item.textContent.trim()) types.add(item.textContent.trim());
       });
     });
@@ -256,7 +352,7 @@ function setupFilter() {
   };
 }
 
-// --- Save/load
+// ── Save / load ──────────────────────────────────────────────────────────────
 function save() {
   const rows = Array.from(body.querySelectorAll('tr')).map(extractRowData);
   localStorage.setItem(currentKey(), JSON.stringify(rows));
@@ -268,26 +364,29 @@ function load() {
   body.innerHTML = '';
   raw.forEach(r => body.appendChild(createRow(r)));
   toggleEmpty();
-  if (typeof updateFilterOptions === 'function') {
-    updateFilterOptions();
-  }
+  if (typeof updateFilterOptions === 'function') updateFilterOptions();
 }
 
-// --- Export / Import
+// ── Export / Import ──────────────────────────────────────────────────────────
 document.getElementById('exportData').addEventListener('click', () => {
+  // Export all wallets + their data
+  const walletData = wallets.map(w => ({
+    id: w.id,
+    name: w.name,
+    main:    JSON.parse(localStorage.getItem(walletMainKey(w.id))    || '[]'),
+    archive: JSON.parse(localStorage.getItem(walletArchiveKey(w.id)) || '[]'),
+  }));
+
   const payload = {
-    version: 1,
-    main: JSON.parse(localStorage.getItem(KEY_MAIN) || '[]'),
-    archive: JSON.parse(localStorage.getItem(KEY_ARCHIVE) || '[]'),
+    version: 2,
+    wallets: walletData,
+    activeWalletId,
     exportedAt: new Date().toISOString()
   };
 
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: 'application/json'
-  });
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
   a.href = url;
   a.download = 'daftar-airdrop.json';
   a.click();
@@ -307,16 +406,28 @@ document.getElementById('importFile').addEventListener('change', e => {
     try {
       const data = JSON.parse(reader.result);
 
-      if (!data.main || !data.archive) {
+      if (!confirm('Import akan menimpa data saat ini. Lanjutkan?')) return;
+
+      if (data.version === 2 && Array.isArray(data.wallets)) {
+        // New multi‑wallet format
+        data.wallets.forEach(w => {
+          localStorage.setItem(walletMainKey(w.id),    JSON.stringify(w.main    || []));
+          localStorage.setItem(walletArchiveKey(w.id), JSON.stringify(w.archive || []));
+        });
+        wallets = data.wallets.map(({ id, name }) => ({ id, name }));
+        saveWallets();
+        activeWalletId = data.activeWalletId || wallets[0].id;
+      } else if (data.main || data.archive) {
+        // Legacy single‑wallet format → import into current wallet
+        localStorage.setItem(walletMainKey(activeWalletId),    JSON.stringify(data.main    || []));
+        localStorage.setItem(walletArchiveKey(activeWalletId), JSON.stringify(data.archive || []));
+      } else {
         alert('Format file tidak valid');
         return;
       }
 
-      if (!confirm('Import akan menimpa data saat ini. Lanjutkan?')) return;
-
-      localStorage.setItem(KEY_MAIN, JSON.stringify(data.main));
-      localStorage.setItem(KEY_ARCHIVE, JSON.stringify(data.archive));
-
+      localStorage.setItem(KEY_ACTIVE_W, activeWalletId);
+      renderWalletSelect();
       load();
       alert('Import berhasil');
     } catch (err) {
@@ -328,17 +439,31 @@ document.getElementById('importFile').addEventListener('change', e => {
   e.target.value = '';
 });
 
-// --- Init
+// ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  loadWallets();
+  renderWalletSelect();
   load();
   setupFilter();
 
-document.getElementById('addRow').addEventListener('click', () => {
-  const row = createRow();
-  body.insertBefore(row, body.firstChild);
-  save();
-  updateFilterOptions();
-});
+  // Wallet events
+  walletSelect.addEventListener('change', () => {
+    activeWalletId = walletSelect.value;
+    localStorage.setItem(KEY_ACTIVE_W, activeWalletId);
+    load();
+  });
+
+  document.getElementById('addWallet').addEventListener('click', addWallet);
+  document.getElementById('editWallet').addEventListener('click', editWallet);
+  document.getElementById('deleteWallet').addEventListener('click', deleteWallet);
+
+  // Existing toolbar
+  document.getElementById('addRow').addEventListener('click', () => {
+    const row = createRow();
+    body.insertBefore(row, body.firstChild);
+    save();
+    updateFilterOptions();
+  });
 
   document.getElementById('resetStatus').addEventListener('click', () => {
     body.querySelectorAll('input[type="checkbox"]').forEach(c => {

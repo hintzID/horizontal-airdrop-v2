@@ -1,353 +1,428 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
 :root {
-  --accent: #4a6cf7;
-  --accent-light: rgba(74, 108, 247, 0.1);
-  --muted: #777;
-  --border: #e6e9ef;
-  --background: #f7f9fc;
-  --white: #fff;
-  --light-bg: #f0f2f8;
-  --danger: #e74c3c;
-  --danger-light: rgba(231, 76, 60, 0.1);
-  --success: #2ecc71;
-  --success-light: rgba(46, 204, 113, 0.05);
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --accent:        #3b6ef8;
+  --accent-dim:    rgba(59,110,248,.12);
+  --accent-glow:   rgba(59,110,248,.22);
+  --bg:            #f4f6fb;
+  --surface:       #ffffff;
+  --surface-raised:#f9fafd;
+  --border:        #e3e7f0;
+  --border-strong: #c8d0e8;
+  --text:          #0f1520;
+  --text-muted:    #7a8499;
+  --danger:        #e8424f;
+  --danger-dim:    rgba(232,66,79,.10);
+  --success-dim:   rgba(34,197,94,.07);
+  --wallet-bg:     #eef1fd;
+  --radius-sm:     5px;
+  --radius:        8px;
+  --radius-lg:     11px;
+  --shadow-sm:     0 1px 3px rgba(0,0,0,.07);
+  --shadow:        0 2px 10px rgba(0,0,0,.09);
+  --font:          'DM Sans', system-ui, sans-serif;
+  --mono:          'JetBrains Mono', monospace;
 }
 
-* {
-  box-sizing: border-box;
-}
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html,
-body {
+html, body {
   height: 100%;
-  margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-  background: var(--background);
-  color: #111;
-  line-height: 1.5;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.45;
+  font-size: 13.5px;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ── Layout shell ── */
 .wrap {
   height: 100vh;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  padding: 12px 14px 0;
   max-width: 100vw;
+  overflow: hidden;
 }
 
-/* Header */
+/* ── Header ── */
 header {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 7px;
 }
 
-h1 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.tools {
+.header-top {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-/* Tombol */
-button {
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-  background: var(--white);
-  cursor: pointer;
-  font-size: 14px;
+h1 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -.3px;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+/* ── Wallet bar ── */
+.wallet-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  background: var(--wallet-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 5px 10px;
+  min-width: 0;
+}
+
+.wallet-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  letter-spacing: .2px;
+}
+
+.wallet-dropdown-wrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+#walletSelect {
+  flex: 1;
+  min-width: 80px;
+  max-width: 220px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-family: var(--font);
+  font-size: 13px;
   font-weight: 500;
-  transition: all 0.2s ease;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+#walletSelect:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+#editWallet, #deleteWallet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  flex-shrink: 0;
+}
+
+#editWallet:hover   { background: var(--accent-dim); border-color: var(--accent); }
+#deleteWallet:hover { background: var(--danger-dim); border-color: var(--danger); }
+
+.btn-wallet-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s, box-shadow .15s;
+  flex-shrink: 0;
+}
+
+.btn-wallet-add:hover { background: #2a5de0; box-shadow: 0 2px 8px var(--accent-glow); }
+
+/* ── Toolbar ── */
+.tools {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  transition: background .15s, box-shadow .15s, transform .1s;
+  white-space: nowrap;
 }
 
 button:hover {
-  background: #f5f5f5;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
   transform: translateY(-1px);
-  box-shadow: var(--shadow);
 }
 
 .btn-primary {
   background: var(--accent);
-  color: white;
+  color: #fff;
   border-color: var(--accent);
+  font-weight: 600;
 }
 
-.btn-primary:hover {
-  background: #3a5ce5;
-}
+.btn-primary:hover { background: #2a5de0; }
 
 .btn-danger {
-  background: var(--danger-light);
+  background: var(--danger-dim);
   color: var(--danger);
-  border-color: var(--danger-light);
+  border-color: transparent;
 }
 
-.btn-danger:hover {
-  background: var(--danger);
-  color: white;
+.btn-danger:hover { background: var(--danger); color: #fff; }
+
+/* ── Filter bar ── */
+.filter-container {
+  display: none;
+  gap: 5px;
+  flex-wrap: wrap;
+  padding: 7px 10px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
-/* Container tabel */
+.filter-container.active { display: flex; }
+
+.filter-option {
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background .15s, color .15s;
+}
+
+.filter-option:hover  { background: var(--accent-dim); border-color: var(--accent); }
+.filter-option.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ── Table container ── */
 .table-container {
-  flex: 1;
   overflow: auto;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
-  background: var(--white);
+  background: var(--surface);
+  border: 1px solid var(--border);
 }
 
-/* Tabel */
+/* ── Table ── */
 table {
   width: 100%;
   border-collapse: collapse;
-  background: var(--white);
   table-layout: fixed;
-  overflow: hidden;
 }
 
-.col-nama       { width: 22%; }
+.col-nama      { width: 20%; }
 .col-deskripsi { width: 30%; }
-.col-tipe       { width: 12%; }
-.col-status     { width: 8%; }
-.col-link       { width: 14%; }
-.col-aksi       { width: 14%; }
+.col-tipe      { width: 11%; }
+.col-status    { width: 7%;  }
+.col-link      { width: 13%; }
+.col-aksi      { width: 19%; }
 
 thead {
-  background: var(--light-bg);
+  background: var(--surface-raised);
   position: sticky;
   top: 0;
   z-index: 10;
 }
 
 th {
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
   text-align: left;
-  padding: 12px 10px;
-  border-bottom: 2px solid var(--border);
-  font-size: 14px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
 }
 
 td {
-  padding: 10px;
+  padding: 7px 9px;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 
-/* Sel yang menampung item */
+tr:last-child td { border-bottom: none; }
+tr:hover td      { background: rgba(59,110,248,.025); }
+
+/* ── Cell ── */
 .cell {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  max-height: 100%;
-  overflow: auto;
-  padding-right: 4px;
+  gap: 4px;
+  align-items: flex-start;
 }
 
-/* Item yang dapat diedit */
+/* ── Item chip ── */
 .item {
   display: inline-block;
-  white-space: nowrap;
-  padding: 4px 10px;
+  padding: 2px 8px;
   border-radius: 20px;
-  border: 1px solid #ddd;
-  background: #f8f9fa;
-  min-width: 40px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  min-width: 32px;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 13px;
-  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-size: 12.5px;
+  transition: border-color .15s, box-shadow .15s;
 }
 
 .item[contenteditable]:focus {
-  outline: 2px solid var(--accent-light);
+  outline: none;
   border-color: var(--accent);
-  background: var(--white);
-  box-shadow: 0 0 0 3px var(--accent-light);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+  white-space: pre;
 }
 
-/* Tombol tambah item di dalam cell */
+/* ── Add item inline button ── */
 .add-item {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 4px 8px;
+  padding: 2px 7px;
   border-radius: 20px;
-  border: 1px dashed #ddd;
-  background: #fafafa;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
   cursor: pointer;
-  font-size: 12px;
-  transition: all 0.2s ease;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  transition: background .15s, border-color .15s, color .15s;
 }
 
 .add-item:hover {
-  background: #f0f0f0;
-  border-color: #bbb;
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
-/* Link */
+/* ── Link icon ── */
 .link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   text-decoration: none;
-  font-size: 16px;
-  width: 28px;
-  height: 28px;
+  font-size: 14px;
+  width: 24px; height: 24px;
   border-radius: 50%;
-  background: #f8f9fa;
-  transition: all 0.2s ease;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  transition: background .15s, transform .15s, border-color .15s;
 }
 
 .link:hover {
-  background: var(--accent-light);
-  transform: scale(1.1);
-}
-
-/* Aksi */
-.btns {
-  display: flex;
-  gap: 6px;
-}
-
-.btns button {
-  padding: 6px 10px;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  min-height: 32px;
-}
-
-/* Baris selesai */
-.completed td {
-  opacity: 0.7;
-  background: var(--success-light);
-}
-
-/* Filter */
-.filter-container {
-  display: none;
-  padding: 12px;
-  background: var(--light-bg);
-  border-radius: 6px;
-  margin-top: 8px;
-}
-
-.filter-container.active {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.filter-option {
-  padding: 6px 12px;
-  border-radius: 20px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s ease;
-}
-
-.filter-option:hover {
-  background: #f0f0f0;
-}
-
-.filter-option.active {
-  background: var(--accent);
-  color: white;
+  background: var(--accent-dim);
+  transform: scale(1.15);
   border-color: var(--accent);
 }
 
-/* Teks muted */
-.muted {
-  color: var(--muted);
+/* ── Row action buttons ── */
+.btns {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btns button {
+  padding: 3px 8px;
+  font-size: 11.5px;
+  height: 26px;
+}
+
+/* ── Completed row ── */
+.completed td              { background: var(--success-dim); }
+.completed .item           { opacity: .6; text-decoration: line-through; }
+
+/* ── Checkbox ── */
+input[type="checkbox"] {
+  width: 15px; height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin-top: 1px;
+}
+
+/* ── Empty state ── */
+#empty {
+  color: var(--text-muted);
   text-align: center;
-  margin: 20px 0;
+  padding: 40px 0;
+  font-size: 13px;
   font-style: italic;
 }
 
-.hidden {
-  display: none;
-}
+.hidden { display: none !important; }
 
-/* Responsif */
-@media (max-width: 900px) {
-  .wrap {
-    padding: 12px;
-  }
-  
-  h1 {
-    font-size: 18px;
-  }
-  
-  .tools {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  button {
-    width: 100%;
-    justify-content: center;
-  }
-  
-  .table-container {
-    border-radius: 6px;
-    padding-bottom: 48px;
-  }
-  
-  table {
-    min-width: 800px; /* Memastikan tabel tidak terlalu kecil di mobile */
-  }
-  
-  th, td {
-    padding: 8px;
-  }
-}
+/* ── Footer ── */
 .footer {
-  position: sticky;
-  bottom: 0;
-  height: 40px;
-  background: linear-gradient(
-    to top,
-    rgba(247, 249, 252, 1),
-    rgba(247, 249, 252, 0.85),
-    rgba(247, 249, 252, 0)
-  );
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  background: linear-gradient(to top, var(--bg) 55%, transparent);
 }
 
 .footer-text {
-  font-size: 12px;
-  color: #999;
+  font-size: 10.5px;
+  color: #c0c6d4;
+  font-family: var(--mono);
+  letter-spacing: .3px;
   -webkit-user-select: none;
   user-select: none;
 }
 
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  .wrap { padding: 8px 10px 0; gap: 8px; }
+  .wallet-bar { flex-wrap: wrap; }
+  #walletSelect { max-width: 100%; }
+  table { min-width: 680px; }
+  .table-container { border-radius: var(--radius); }
+}
 
-@media (max-width: 480px) {
-  .wrap {
-    padding: 8px;
-  }
-  
-  h1 {
-    font-size: 16px;
-  }
-  
-  .item, .add-item {
-    font-size: 12px;
-  }
+@media (max-width: 540px) {
+  h1 { font-size: 14px; }
+  .tools button { font-size: 11.5px; padding: 4px 8px; }
+  .item, .add-item { font-size: 11.5px; }
 }

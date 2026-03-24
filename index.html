@@ -9,7 +9,18 @@
 <body>
   <main class="wrap">
     <header>
-      <h1 id="pageTitle">Daftar Airdrop</h1>
+      <div class="header-top">
+        <h1 id="pageTitle">Daftar Airdrop</h1>
+        <div class="wallet-bar">
+          <span class="wallet-label">💳 Wallet:</span>
+          <div class="wallet-dropdown-wrap">
+            <select id="walletSelect" title="Pilih wallet"></select>
+            <button id="editWallet" title="Edit nama wallet">✏️</button>
+            <button id="deleteWallet" title="Hapus wallet ini" class="btn-wallet-del">🗑</button>
+          </div>
+          <button id="addWallet" class="btn-wallet-add">+ Wallet</button>
+        </div>
+      </div>
       <div class="tools">
         <button id="exportData">⬇ Export</button>
         <button id="importData">⬆ Import</button>
@@ -24,14 +35,14 @@
 
     <div class="table-container">
       <table>
-<colgroup>
-  <col class="col-nama">
-  <col class="col-deskripsi">
-  <col class="col-tipe">
-  <col class="col-status">
-  <col class="col-link">
-  <col class="col-aksi">
-</colgroup>
+        <colgroup>
+          <col class="col-nama">
+          <col class="col-deskripsi">
+          <col class="col-tipe">
+          <col class="col-status">
+          <col class="col-link">
+          <col class="col-aksi">
+        </colgroup>
         <thead>
           <tr>
             <th>Nama</th>
@@ -48,9 +59,8 @@
 
     <p id="empty" class="muted">Belum ada data — klik "Tambah".</p>
     <footer class="footer">
-  <span class="footer-text">Airdrop List · Local only · No cloud</span>
-</footer>
-
+      <span class="footer-text">Airdrop List · Local only · No cloud</span>
+    </footer>
   </main>
 
   <script src="script.js"></script>
