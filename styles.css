@@ -279,6 +279,8 @@ td {
   padding: 7px 9px;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
+  min-width: 0;           /* flex child dalam td fixed layout harus bisa shrink */
+  overflow: hidden;       /* cegah konten meluber keluar kolom */
 }
 
 tr:last-child td { border-bottom: none; }
@@ -289,7 +291,9 @@ tr:hover td      { background: rgba(59,110,248,.025); }
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  align-items: flex-start;
+  align-items: center;
+  padding-bottom: 2px;
+  min-width: 0;         /* supaya flex child bisa shrink di dalam td fixed */
 }
 
 /* ── Item chip ── */
@@ -302,9 +306,11 @@ tr:hover td      { background: rgba(59,110,248,.025); }
   min-width: 32px;
   max-width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;       /* biarkan teks wrap di dalam chip */
   font-size: 12.5px;
+  line-height: 1.4;
   transition: border-color .15s, box-shadow .15s;
 }
 
@@ -313,7 +319,7 @@ tr:hover td      { background: rgba(59,110,248,.025); }
   border-color: var(--accent);
   background: var(--surface);
   box-shadow: 0 0 0 3px var(--accent-dim);
-  white-space: pre;
+  white-space: pre-wrap;     /* saat edit: tampilkan spasi, tapi tetap wrap */
 }
 
 /* ── Add item inline button ── */
@@ -358,10 +364,11 @@ tr:hover td      { background: rgba(59,110,248,.025); }
 
 /* ── Row action buttons ── */
 .btns {
-  display: flex;
   gap: 4px;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: wrap;
+  vertical-align: top;
+  padding-top: 5px;     /* sedikit padding atas agar sejajar chip baris pertama */
 }
 
 .btns button {

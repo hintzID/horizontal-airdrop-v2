@@ -116,7 +116,7 @@ const sampleRow = () => ({
   deskripsi: ['Ringkasan singkat'],
   type: ['DeFi'],
   status: false,
-  links: ['https://example.com']
+  links: [{ url: 'https://example.com', type: 'normal' }]
 });
 
 // ── UI helpers ───────────────────────────────────────────────────────────────
@@ -151,26 +151,74 @@ function makeItem(text = '') {
 }
 
 // ── Link ────────────────────────────────────────────────────────────────────
-function makeLink(url = '') {
+// linkData: string (legacy) | { url, type: 'normal'|'ref' }
+function makeLink(linkData = '') {
+  const isObj   = typeof linkData === 'object' && linkData !== null;
+  const url     = isObj ? (linkData.url  || '') : linkData;
+  const type    = isObj ? (linkData.type || 'normal') : 'normal';
+
   const a = document.createElement('a');
   a.className = 'link';
-  a.href = url || '#';
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
-  a.dataset.url = url;
-  a.textContent = '🔗';
-  a.title = url || 'Shift + Klik untuk edit URL';
+  a.href = '#';
+  a.dataset.url      = url;
+  a.dataset.linkType = type;
+
+  function applyAppearance() {
+    const isRef = a.dataset.linkType === 'ref';
+    a.textContent = isRef ? '🏷️' : '🔗';
+    a.classList.toggle('link-ref', isRef);
+    a.title = isRef
+      ? `[Ref-Link] ${a.dataset.url || '—'}\nKlik: copy URL · Shift+Klik: edit · Klik kanan: ubah jenis`
+      : `[Link] ${a.dataset.url || '—'}\nKlik: buka URL · Shift+Klik: edit · Klik kanan: ubah jenis`;
+  }
+
+  applyAppearance();
 
   a.addEventListener('click', e => {
+    e.preventDefault();
+
+    // Shift+click → edit URL
     if (e.shiftKey) {
-      e.preventDefault();
       const nu = prompt('Edit URL:', a.dataset.url || '');
       if (nu === null) return;
       a.dataset.url = nu.trim();
-      a.href = nu.startsWith('http') ? nu : 'https://' + nu;
-      a.title = a.dataset.url || 'Shift + Klik untuk edit URL';
+      applyAppearance();
       save();
+      return;
     }
+
+    if (a.dataset.linkType === 'ref') {
+      // Ref-link: copy to clipboard
+      const txt = a.dataset.url || '';
+      const flash = (ok) => {
+        const prev = a.textContent;
+        a.textContent = ok ? '✅' : '❌';
+        setTimeout(() => { a.textContent = prev; }, 1300);
+      };
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(txt).then(() => flash(true)).catch(() => flash(false));
+      } else {
+        // Fallback execCommand
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); flash(true); } catch { flash(false); }
+        document.body.removeChild(ta);
+      }
+    } else {
+      // Normal link: open in new tab
+      if (a.dataset.url) window.open(a.dataset.url, '_blank', 'noopener,noreferrer');
+    }
+  });
+
+  // Right-click → toggle between normal ↔ ref
+  a.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    a.dataset.linkType = a.dataset.linkType === 'ref' ? 'normal' : 'ref';
+    applyAppearance();
+    save();
   });
 
   return a;
@@ -188,7 +236,10 @@ function extractRowData(tr) {
     deskripsi: grab(1),
     type: grab(2),
     status: tds[3].querySelector('input').checked,
-    links: Array.from(tds[4].querySelectorAll('.link')).map(a => a.dataset.url || '')
+    links: Array.from(tds[4].querySelectorAll('.link')).map(a => ({
+      url:  a.dataset.url      || '',
+      type: a.dataset.linkType || 'normal'
+    }))
   };
 }
 
@@ -244,12 +295,19 @@ function createRow(data = null) {
   addLink.className = 'add-item';
   addLink.textContent = '+ link';
   addLink.addEventListener('click', () => {
-    const url = prompt('URL:');
-    if (url) {
-      linkContainer.insertBefore(makeLink(url), addLink);
-      save();
-      refreshPlusPosition(linkContainer);
-    }
+    const url = prompt('Masukkan URL:');
+    if (!url || !url.trim()) return;
+    const isRef = confirm(
+      'Pilih jenis link:\n\n' +
+      '✅ OK       → Ref-Link 🏷️  (klik = copy URL)\n' +
+      '❌ Batal  → Link Biasa 🔗 (klik = buka URL)'
+    );
+    linkContainer.insertBefore(
+      makeLink({ url: url.trim(), type: isRef ? 'ref' : 'normal' }),
+      addLink
+    );
+    save();
+    refreshPlusPosition(linkContainer);
   });
   linkContainer.appendChild(addLink);
   tdLink.appendChild(linkContainer);
