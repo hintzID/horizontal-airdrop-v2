@@ -1,24 +1,74 @@
-// ── Wallet keys ────────────────────────────────────────────────────────────
-const KEY_WALLETS   = 'daftarAirdrop_wallets';   // [{id, name}]
-const KEY_ACTIVE_W  = 'daftarAirdrop_activeWallet';
+// ══════════════════════════════════════════════════════════════
+//  IndexedDB wrapper
+// ══════════════════════════════════════════════════════════════
+const DB_NAME    = 'DaftarAirdropDB';
+const DB_VERSION = 1;
+const STORE      = 'kv';   // simple key-value object store
 
-// ── Per‑wallet storage helpers ──────────────────────────────────────────────
+let _db = null;
+
+function openDB() {
+  if (_db) return Promise.resolve(_db);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      e.target.result.createObjectStore(STORE);
+    };
+    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+async function idbGet(key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).get(key);
+    req.onsuccess = () => resolve(req.result ?? null);
+    req.onerror   = e  => reject(e.target.error);
+  });
+}
+
+async function idbSet(key, value) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).put(value, key);
+    req.onsuccess = () => resolve();
+    req.onerror   = e  => reject(e.target.error);
+  });
+}
+
+async function idbDel(key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror   = e  => reject(e.target.error);
+  });
+}
+
+// ── Wallet keys ────────────────────────────────────────────────────────────
+const KEY_WALLETS  = 'daftarAirdrop_wallets';
+const KEY_ACTIVE_W = 'daftarAirdrop_activeWallet';
+
 function walletMainKey(wid)    { return `daftarAirdrop_v1__${wid}`; }
 function walletArchiveKey(wid) { return `daftarAirdrop_arsip__${wid}`; }
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 // ── Wallet state ────────────────────────────────────────────────────────────
-let wallets = [];         // [{id, name}]
+let wallets       = [];
 let activeWalletId = null;
-let isArchiveView = false;
+let isArchiveView  = false;
 
 // ── DOM refs ────────────────────────────────────────────────────────────────
-const body           = document.getElementById('body');
-const empty          = document.getElementById('empty');
-const pageTitle      = document.getElementById('pageTitle');
+const body             = document.getElementById('body');
+const empty            = document.getElementById('empty');
+const pageTitle        = document.getElementById('pageTitle');
 const switchArchiveBtn = document.getElementById('switchArchive');
-const walletSelect   = document.getElementById('walletSelect');
+const walletSelect     = document.getElementById('walletSelect');
 
 // ── Current storage key ─────────────────────────────────────────────────────
 function currentKey() {
@@ -28,31 +78,59 @@ function currentKey() {
 }
 
 // ── Wallet persistence ──────────────────────────────────────────────────────
-function saveWallets() {
-  localStorage.setItem(KEY_WALLETS, JSON.stringify(wallets));
+async function saveWallets() {
+  await idbSet(KEY_WALLETS,  wallets);
+  await idbSet(KEY_ACTIVE_W, activeWalletId);
 }
 
-function loadWallets() {
-  const raw = localStorage.getItem(KEY_WALLETS);
-  wallets = raw ? JSON.parse(raw) : [];
+async function loadWallets() {
+  wallets = (await idbGet(KEY_WALLETS)) || [];
 
   if (wallets.length === 0) {
-    // Migrate legacy data (no‑wallet era) into a default wallet
-    const legacyMain    = localStorage.getItem('daftarAirdrop_v1');
-    const legacyArchive = localStorage.getItem('daftarAirdrop_arsip');
-    const def = { id: genId(), name: 'Wallet Utama' };
-    wallets.push(def);
-    if (legacyMain)    localStorage.setItem(walletMainKey(def.id),    legacyMain);
-    if (legacyArchive) localStorage.setItem(walletArchiveKey(def.id), legacyArchive);
-    saveWallets();
+    // Migrate from localStorage (legacy) if present
+    const legacyWallets  = localStorage.getItem(KEY_WALLETS);
+    const legacyActive   = localStorage.getItem(KEY_ACTIVE_W);
+
+    if (legacyWallets) {
+      wallets = JSON.parse(legacyWallets);
+
+      // Copy each wallet's data from localStorage into IndexedDB
+      for (const w of wallets) {
+        const main    = localStorage.getItem(walletMainKey(w.id));
+        const archive = localStorage.getItem(walletArchiveKey(w.id));
+        if (main)    await idbSet(walletMainKey(w.id),    JSON.parse(main));
+        if (archive) await idbSet(walletArchiveKey(w.id), JSON.parse(archive));
+      }
+
+      activeWalletId = legacyActive || wallets[0].id;
+      await saveWallets();
+
+      // Clean up old localStorage keys (optional, but tidy)
+      localStorage.removeItem(KEY_WALLETS);
+      localStorage.removeItem(KEY_ACTIVE_W);
+      wallets.forEach(w => {
+        localStorage.removeItem(walletMainKey(w.id));
+        localStorage.removeItem(walletArchiveKey(w.id));
+      });
+
+    } else {
+      // Brand-new install: check for very old single-wallet localStorage data
+      const legacyMain    = localStorage.getItem('daftarAirdrop_v1');
+      const legacyArchive = localStorage.getItem('daftarAirdrop_arsip');
+      const def = { id: genId(), name: 'Wallet Utama' };
+      wallets.push(def);
+      if (legacyMain)    await idbSet(walletMainKey(def.id),    JSON.parse(legacyMain));
+      if (legacyArchive) await idbSet(walletArchiveKey(def.id), JSON.parse(legacyArchive));
+      activeWalletId = def.id;
+      await saveWallets();
+    }
+  } else {
+    const savedActive = await idbGet(KEY_ACTIVE_W);
+    activeWalletId = wallets.find(w => w.id === savedActive)
+      ? savedActive
+      : wallets[0].id;
+    await idbSet(KEY_ACTIVE_W, activeWalletId);
   }
-
-  const savedActive = localStorage.getItem(KEY_ACTIVE_W);
-  activeWalletId = wallets.find(w => w.id === savedActive)
-    ? savedActive
-    : wallets[0].id;
-
-  localStorage.setItem(KEY_ACTIVE_W, activeWalletId);
 }
 
 // ── Render wallet dropdown ──────────────────────────────────────────────────
@@ -68,29 +146,28 @@ function renderWalletSelect() {
 }
 
 // ── Wallet CRUD ─────────────────────────────────────────────────────────────
-function addWallet() {
+async function addWallet() {
   const name = prompt('Nama wallet baru:');
   if (!name || !name.trim()) return;
   const w = { id: genId(), name: name.trim() };
   wallets.push(w);
-  saveWallets();
   activeWalletId = w.id;
-  localStorage.setItem(KEY_ACTIVE_W, activeWalletId);
+  await saveWallets();
   renderWalletSelect();
-  load();
+  await load();
 }
 
-function editWallet() {
+async function editWallet() {
   const w = wallets.find(w => w.id === activeWalletId);
   if (!w) return;
   const name = prompt('Edit nama wallet:', w.name);
   if (!name || !name.trim()) return;
   w.name = name.trim();
-  saveWallets();
+  await saveWallets();
   renderWalletSelect();
 }
 
-function deleteWallet() {
+async function deleteWallet() {
   if (wallets.length === 1) {
     alert('Minimal harus ada satu wallet.');
     return;
@@ -98,16 +175,14 @@ function deleteWallet() {
   const w = wallets.find(w => w.id === activeWalletId);
   if (!confirm(`Hapus wallet "${w.name}" beserta semua datanya?`)) return;
 
-  // Remove data
-  localStorage.removeItem(walletMainKey(activeWalletId));
-  localStorage.removeItem(walletArchiveKey(activeWalletId));
+  await idbDel(walletMainKey(activeWalletId));
+  await idbDel(walletArchiveKey(activeWalletId));
 
   wallets = wallets.filter(w => w.id !== activeWalletId);
-  saveWallets();
   activeWalletId = wallets[0].id;
-  localStorage.setItem(KEY_ACTIVE_W, activeWalletId);
+  await saveWallets();
   renderWalletSelect();
-  load();
+  await load();
 }
 
 // ── Sample row ──────────────────────────────────────────────────────────────
@@ -151,11 +226,10 @@ function makeItem(text = '') {
 }
 
 // ── Link ────────────────────────────────────────────────────────────────────
-// linkData: string (legacy) | { url, type: 'normal'|'ref' }
 function makeLink(linkData = '') {
-  const isObj   = typeof linkData === 'object' && linkData !== null;
-  const url     = isObj ? (linkData.url  || '') : linkData;
-  const type    = isObj ? (linkData.type || 'normal') : 'normal';
+  const isObj = typeof linkData === 'object' && linkData !== null;
+  const url   = isObj ? (linkData.url  || '') : linkData;
+  const type  = isObj ? (linkData.type || 'normal') : 'normal';
 
   const a = document.createElement('a');
   a.className = 'link';
@@ -177,7 +251,6 @@ function makeLink(linkData = '') {
   a.addEventListener('click', e => {
     e.preventDefault();
 
-    // Shift+click → edit URL
     if (e.shiftKey) {
       const nu = prompt('Edit URL:', a.dataset.url || '');
       if (nu === null) return;
@@ -188,7 +261,6 @@ function makeLink(linkData = '') {
     }
 
     if (a.dataset.linkType === 'ref') {
-      // Ref-link: copy to clipboard
       const txt = a.dataset.url || '';
       const flash = (ok) => {
         const prev = a.textContent;
@@ -198,7 +270,6 @@ function makeLink(linkData = '') {
       if (navigator.clipboard) {
         navigator.clipboard.writeText(txt).then(() => flash(true)).catch(() => flash(false));
       } else {
-        // Fallback execCommand
         const ta = document.createElement('textarea');
         ta.value = txt;
         ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
@@ -208,12 +279,10 @@ function makeLink(linkData = '') {
         document.body.removeChild(ta);
       }
     } else {
-      // Normal link: open in new tab
       if (a.dataset.url) window.open(a.dataset.url, '_blank', 'noopener,noreferrer');
     }
   });
 
-  // Right-click → toggle between normal ↔ ref
   a.addEventListener('contextmenu', e => {
     e.preventDefault();
     a.dataset.linkType = a.dataset.linkType === 'ref' ? 'normal' : 'ref';
@@ -226,16 +295,16 @@ function makeLink(linkData = '') {
 
 // ── Row extractor ────────────────────────────────────────────────────────────
 function extractRowData(tr) {
-  const tds = tr.querySelectorAll('td');
+  const tds  = tr.querySelectorAll('td');
   const grab = i =>
     Array.from(tds[i].querySelectorAll('.item'))
       .map(d => d.dataset.value?.trim() || d.textContent.trim())
       .filter(Boolean);
   return {
-    nama: grab(0),
+    nama:      grab(0),
     deskripsi: grab(1),
-    type: grab(2),
-    status: tds[3].querySelector('input').checked,
+    type:      grab(2),
+    status:    tds[3].querySelector('input').checked,
     links: Array.from(tds[4].querySelectorAll('.link')).map(a => ({
       url:  a.dataset.url      || '',
       type: a.dataset.linkType || 'normal'
@@ -245,12 +314,12 @@ function extractRowData(tr) {
 
 // ── Row builder ──────────────────────────────────────────────────────────────
 function createRow(data = null) {
-  const d = data || sampleRow();
+  const d  = data || sampleRow();
   const tr = document.createElement('tr');
   if (d.status) tr.classList.add('completed');
 
   const makeTd = (items) => {
-    const td = document.createElement('td');
+    const td   = document.createElement('td');
     const wrap = document.createElement('div');
     wrap.className = 'cell';
     (items || []).forEach(it => wrap.appendChild(makeItem(it)));
@@ -277,8 +346,8 @@ function createRow(data = null) {
   tr.appendChild(makeTd(d.type));
 
   const tdStatus = document.createElement('td');
-  const chk = document.createElement('input');
-  chk.type = 'checkbox';
+  const chk      = document.createElement('input');
+  chk.type    = 'checkbox';
   chk.checked = !!d.status;
   chk.addEventListener('change', () => {
     tr.classList.toggle('completed', chk.checked);
@@ -287,12 +356,12 @@ function createRow(data = null) {
   tdStatus.appendChild(chk);
   tr.appendChild(tdStatus);
 
-  const tdLink = document.createElement('td');
+  const tdLink        = document.createElement('td');
   const linkContainer = document.createElement('div');
   linkContainer.className = 'cell';
   (d.links || []).forEach(u => linkContainer.appendChild(makeLink(u)));
   const addLink = document.createElement('span');
-  addLink.className = 'add-item';
+  addLink.className   = 'add-item';
   addLink.textContent = '+ link';
   addLink.addEventListener('click', () => {
     const url = prompt('Masukkan URL:');
@@ -313,7 +382,7 @@ function createRow(data = null) {
   tdLink.appendChild(linkContainer);
   tr.appendChild(tdLink);
 
-  const tdA = document.createElement('td');
+  const tdA     = document.createElement('td');
   tdA.className = 'btns';
 
   const moveBtn = document.createElement('button');
@@ -337,18 +406,18 @@ function createRow(data = null) {
 }
 
 // ── Archive / main swap ──────────────────────────────────────────────────────
-function moveRow(tr, toArchive) {
+async function moveRow(tr, toArchive) {
   const fromKey = toArchive ? walletMainKey(activeWalletId)    : walletArchiveKey(activeWalletId);
   const toKey   = toArchive ? walletArchiveKey(activeWalletId) : walletMainKey(activeWalletId);
   const rowData = extractRowData(tr);
 
-  const fromData = JSON.parse(localStorage.getItem(fromKey) || '[]')
+  const fromData = ((await idbGet(fromKey)) || [])
     .filter(r => JSON.stringify(r) !== JSON.stringify(rowData));
-  const toData = JSON.parse(localStorage.getItem(toKey) || '[]');
+  const toData = (await idbGet(toKey)) || [];
 
-  localStorage.setItem(fromKey, JSON.stringify(fromData));
+  await idbSet(fromKey, fromData);
   toData.push(rowData);
-  localStorage.setItem(toKey, JSON.stringify(toData));
+  await idbSet(toKey, toData);
 
   tr.remove();
   toggleEmpty();
@@ -381,7 +450,7 @@ function setupFilter() {
     filterContainer.innerHTML = '';
 
     const allOption = document.createElement('span');
-    allOption.className = 'filter-option active';
+    allOption.className   = 'filter-option active';
     allOption.textContent = 'Semua';
     allOption.dataset.filter = 'all';
     allOption.addEventListener('click', () => {
@@ -393,7 +462,7 @@ function setupFilter() {
 
     types.forEach(type => {
       const option = document.createElement('span');
-      option.className = 'filter-option';
+      option.className   = 'filter-option';
       option.textContent = type;
       option.dataset.filter = type;
       option.addEventListener('click', () => {
@@ -413,12 +482,12 @@ function setupFilter() {
 // ── Save / load ──────────────────────────────────────────────────────────────
 function save() {
   const rows = Array.from(body.querySelectorAll('tr')).map(extractRowData);
-  localStorage.setItem(currentKey(), JSON.stringify(rows));
+  idbSet(currentKey(), rows).catch(err => console.error('Gagal simpan:', err));
   toggleEmpty();
 }
 
-function load() {
-  const raw = JSON.parse(localStorage.getItem(currentKey()) || '[]');
+async function load() {
+  const raw = (await idbGet(currentKey())) || [];
   body.innerHTML = '';
   raw.forEach(r => body.appendChild(createRow(r)));
   toggleEmpty();
@@ -426,14 +495,13 @@ function load() {
 }
 
 // ── Export / Import ──────────────────────────────────────────────────────────
-document.getElementById('exportData').addEventListener('click', () => {
-  // Export all wallets + their data
-  const walletData = wallets.map(w => ({
-    id: w.id,
-    name: w.name,
-    main:    JSON.parse(localStorage.getItem(walletMainKey(w.id))    || '[]'),
-    archive: JSON.parse(localStorage.getItem(walletArchiveKey(w.id)) || '[]'),
-  }));
+document.getElementById('exportData').addEventListener('click', async () => {
+  const walletData = await Promise.all(wallets.map(async w => ({
+    id:      w.id,
+    name:    w.name,
+    main:    (await idbGet(walletMainKey(w.id)))    || [],
+    archive: (await idbGet(walletArchiveKey(w.id))) || [],
+  })));
 
   const payload = {
     version: 2,
@@ -445,7 +513,7 @@ document.getElementById('exportData').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url;
+  a.href     = url;
   a.download = 'daftar-airdrop.json';
   a.click();
   URL.revokeObjectURL(url);
@@ -460,33 +528,30 @@ document.getElementById('importFile').addEventListener('change', e => {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
       const data = JSON.parse(reader.result);
 
       if (!confirm('Import akan menimpa data saat ini. Lanjutkan?')) return;
 
       if (data.version === 2 && Array.isArray(data.wallets)) {
-        // New multi‑wallet format
-        data.wallets.forEach(w => {
-          localStorage.setItem(walletMainKey(w.id),    JSON.stringify(w.main    || []));
-          localStorage.setItem(walletArchiveKey(w.id), JSON.stringify(w.archive || []));
-        });
+        for (const w of data.wallets) {
+          await idbSet(walletMainKey(w.id),    w.main    || []);
+          await idbSet(walletArchiveKey(w.id), w.archive || []);
+        }
         wallets = data.wallets.map(({ id, name }) => ({ id, name }));
-        saveWallets();
         activeWalletId = data.activeWalletId || wallets[0].id;
       } else if (data.main || data.archive) {
-        // Legacy single‑wallet format → import into current wallet
-        localStorage.setItem(walletMainKey(activeWalletId),    JSON.stringify(data.main    || []));
-        localStorage.setItem(walletArchiveKey(activeWalletId), JSON.stringify(data.archive || []));
+        await idbSet(walletMainKey(activeWalletId),    data.main    || []);
+        await idbSet(walletArchiveKey(activeWalletId), data.archive || []);
       } else {
         alert('Format file tidak valid');
         return;
       }
 
-      localStorage.setItem(KEY_ACTIVE_W, activeWalletId);
+      await saveWallets();
       renderWalletSelect();
-      load();
+      await load();
       alert('Import berhasil');
     } catch (err) {
       alert('Gagal membaca file JSON');
@@ -498,24 +563,22 @@ document.getElementById('importFile').addEventListener('change', e => {
 });
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  loadWallets();
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadWallets();
   renderWalletSelect();
-  load();
+  await load();
   setupFilter();
 
-  // Wallet events
-  walletSelect.addEventListener('change', () => {
+  walletSelect.addEventListener('change', async () => {
     activeWalletId = walletSelect.value;
-    localStorage.setItem(KEY_ACTIVE_W, activeWalletId);
-    load();
+    await idbSet(KEY_ACTIVE_W, activeWalletId);
+    await load();
   });
 
   document.getElementById('addWallet').addEventListener('click', addWallet);
   document.getElementById('editWallet').addEventListener('click', editWallet);
   document.getElementById('deleteWallet').addEventListener('click', deleteWallet);
 
-  // Existing toolbar
   document.getElementById('addRow').addEventListener('click', () => {
     const row = createRow();
     body.insertBefore(row, body.firstChild);
@@ -531,20 +594,20 @@ document.addEventListener('DOMContentLoaded', () => {
     save();
   });
 
-  document.getElementById('clearAll').addEventListener('click', () => {
+  document.getElementById('clearAll').addEventListener('click', async () => {
     if (confirm('Hapus semua data?')) {
-      localStorage.removeItem(currentKey());
+      await idbDel(currentKey());
       body.innerHTML = '';
       toggleEmpty();
       updateFilterOptions();
     }
   });
 
-  switchArchiveBtn.addEventListener('click', () => {
+  switchArchiveBtn.addEventListener('click', async () => {
     isArchiveView = !isArchiveView;
     document.body.classList.toggle('archive-mode', isArchiveView);
-    pageTitle.textContent = isArchiveView ? 'Arsip Airdrop' : 'Daftar Airdrop';
+    pageTitle.textContent       = isArchiveView ? 'Arsip Airdrop' : 'Daftar Airdrop';
     switchArchiveBtn.textContent = isArchiveView ? '⬅ Kembali ke Utama' : '📁 Arsip';
-    load();
+    await load();
   });
 });
